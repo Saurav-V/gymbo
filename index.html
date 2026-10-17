@@ -51,8 +51,8 @@ b{font-weight:500}
 .hot{background:var(--red);border-color:var(--red);color:#070a0f;font-weight:600}
 .tag{background:var(--red);color:#070a0f;padding:3px 9px;font-size:12px;font-weight:600;letter-spacing:.1em}
 h2::before{content:"";width:8px;height:8px;background:var(--red)}
-.rest{border-color:var(--red)}
-.rest::before{content:"";display:block;height:6px;margin:-8px -12px 8px;background:repeating-linear-gradient(135deg,rgba(240,88,58,.7) 0 2px,transparent 2px 7px)}
+.rest{border-color:var(--ac)}
+.rest::before{content:"";display:block;height:6px;margin:-8px -12px 8px;background:repeating-linear-gradient(135deg,rgba(143,211,230,.45) 0 2px,transparent 2px 7px)}
 .ic.c1{color:var(--red);border-color:var(--red)}.ic.c2{color:var(--cr);border-color:var(--cr)}.ic.c3{color:var(--ac);border-color:var(--ac)}.ic.c4{color:#5b9fbd;border-color:#5b9fbd}.ic.c5{color:var(--tx)}
 .set .num{width:100%;padding:9px 0;font-family:"IBM Plex Mono",monospace;color:var(--dim)}
 .set .num.wu{color:var(--cr);border-color:var(--cr)}
@@ -136,7 +136,7 @@ function chart(p){
 
 function render(){
   layer.innerHTML="";
-  if(ui.view==="active"&&S.active){app.innerHTML=active();if(ui.pick)picker();return}
+  if(ui.view==="active"&&S.active){app.innerHTML=active();if(ui.pick)picker();else if(ui.fin)finDlg();return}
   ui.view=null;
   const sub=ui.detail?detail():ui.rd?routineView():ui.sd?sessionView():null;
   app.innerHTML=(sub||(ui.tab==="home"?home():ui.tab==="workout"?workout():profile()))+((ui.detail||ui.rd||ui.sd)?"":nav());
@@ -146,7 +146,7 @@ function render(){
 function active(){
   const a=S.active;
   return `<div class="row sp"><button class="ghost" data-a="min">⌄ Minimize</button><span id="clk" class="big" style="font-size:20px">${fmt((Date.now()-a.start)/1000)}</span><button class="hot" data-a="finish">Finish</button></div>
-  <div class="rest" id="rest" ${ui.rest>Date.now()?"":"hidden"}><div class="row sp"><span>Rest <b id="rt">${fmt((ui.rest-Date.now())/1000)}</b></span><span><button class="ghost" data-a="rest" data-v="-15">−15</button><button class="ghost" data-a="rest" data-v="15">+15</button><button class="ghost" data-a="rest" data-v="0">Skip</button></span></div></div>
+  <div class="rest" id="rest" ${ui.rest?"":"hidden"}><div class="row sp"><span>Rest <b id="rt">${ui.rest?fmt((Date.now()-ui.rest)/1000):"0:00"}</b></span><span><button class="ghost" data-a="rest" data-v="reset">Restart</button><button class="ghost" data-a="rest" data-v="0">Hide</button></span></div></div>
   <input id="wn" value="${esc(a.name)}" style="margin:14px 0;font-size:18px;font-weight:500">
   ${a.exs.map((x,i)=>{const h=hist(x.n),last=h.length?h[h.length-1].sets:[];return `<div class="card"><div class="row sp"><b style="color:var(--ac)" data-a="detail" data-v="${esc(x.n)}">${esc(x.n)}</b><button class="ghost dng" style="color:var(--dim)" data-a="rmex" data-v="${i}">Remove</button></div>
   <input data-nt="" data-i="${i}" placeholder="Add a note" value="${esc(x.note||"")}" style="margin:8px 0 4px;font-size:14px">${h.length&&h[h.length-1].note?`<div class="dim" style="font-size:12px;margin-bottom:4px">Last time: ${esc(h[h.length-1].note)}</div>`:""}<div class="set dim" style="font-size:11px"><span>Set</span><span>Previous</span><span>kg</span><span>Reps</span><span></span></div>
@@ -173,10 +173,14 @@ function cyc(list,cur){const i=list.indexOf(cur);return list[(i+1)%list.length]}
 const EQS=["","Barbell","Dumbbell","Cable","Machine","Bodyweight"],MUS=["","Chest","Shoulders","Triceps","Biceps","Back","Lats","Quadriceps","Hamstrings","Glutes","Calves","Core"];
 
 function startW(name,exs){ui.rd=null;ui.sd=null;ui.detail=null;S.active={start:Date.now(),name,exs:exs.map(n=>{const h=hist(n),l=h.length?h[h.length-1].sets:[];return{n,sets:l.length?l.map(s=>({kg:s.kg,reps:s.reps,w:s.w,done:false})):[{kg:0,reps:0,done:false}]}})};save();ui.view="active";render()}
-function finish(){
+function tryFinish(){const a=S.active,inc=a.exs.reduce((n,x)=>n+x.sets.filter(t=>!(t.done&&t.reps>0)).length,0),dur=(Date.now()-a.start)/1000;
+if(inc||dur>=7200){ui.fin={inc,dur};render()}else finish()}
+function finDlg(){const f=ui.fin,lg=f.dur>=7200;
+layer.innerHTML=`<div class="ov"><div style="padding-top:8vh"><div class="card"><b style="font-size:18px">Finish workout?</b>${f.inc?`<p>${f.inc} set${f.inc>1?"s aren't":" isn't"} marked done and won't be saved.</p>`:""}${lg?`<p>Your timer reads <b style="color:var(--cr)">${fmt(f.dur)}</b>. Did you forget to finish? Choose how long you trained.</p><div class="chips" style="flex-wrap:wrap">${[[1800,"30 min"],[3600,"1 hour"],[7200,"2 hours"]].map(o=>`<button class="hot" data-a="fdur" data-v="${o[0]}">${o[1]}</button>`).join("")}<button data-a="fdur" data-v="${Math.round(f.dur)}">Keep ${fmt(f.dur)}</button></div><div class="row" style="margin-top:10px"><input id="fmin" inputmode="numeric" placeholder="Other length in minutes"><button class="pri" data-a="fcustom">Set</button></div>`:""}<div class="row" style="margin-top:14px"><button style="flex:1" data-a="fback">Keep editing</button>${lg?"":`<button class="hot" style="flex:1" data-a="fgo">Finish anyway</button>`}</div></div></div></div>`}
+function finish(d){
   const a=S.active;a.exs.forEach(x=>x.sets=x.sets.filter(s=>s.done&&s.reps>0));a.exs=a.exs.filter(x=>x.sets.length);
-  if(a.exs.length){S.workouts.push({id:Date.now(),date:Date.now(),dur:(Date.now()-a.start)/1000,name:a.name||"Workout",exs:a.exs})}
-  S.active=null;ui.view=null;ui.tab="home";ui.rest=0;save();render()}
+  if(a.exs.length){S.workouts.push({id:Date.now(),date:Date.now(),dur:d==null?(Date.now()-a.start)/1000:d,name:a.name||"Workout",exs:a.exs})}
+  if(!a.exs.length)toast("No completed sets, so nothing was saved");S.active=null;ui.fin=null;ui.view=null;ui.tab="home";ui.rest=0;save();render()}
 
 document.addEventListener("input",e=>{
   const t=e.target;
@@ -195,8 +199,12 @@ document.addEventListener("click",e=>{
   else if(a==="resume"){ui.view="active"}
   else if(a==="min"){ui.view=null;ui.pick=null;ui.tab="home"}
   else if(a==="discard"){if(ui.del!=="disc"){ui.del="disc";el.textContent="Tap again to discard";return}S.active=null;ui.view=null;ui.del=null;save()}
-  else if(a==="finish")return finish();
-  else if(a==="chk"){const s=S.active.exs[el.dataset.i].sets[el.dataset.j];s.done=!s.done;if(s.done){ui.rest=Date.now()+90000}save()}
+  else if(a==="finish")return tryFinish();
+  else if(a==="fgo")return finish();
+  else if(a==="fdur")return finish(+v);
+  else if(a==="fcustom"){const m=parseFloat($("#fmin").value);if(!(m>0)){$("#fmin").focus();return}return finish(m*60)}
+  else if(a==="fback")ui.fin=null;
+  else if(a==="chk"){const s=S.active.exs[el.dataset.i].sets[el.dataset.j];s.done=!s.done;if(s.done){ui.rest=Date.now()}save()}
   else if(a==="openR"){scrollTo(0,0);ui.rd=S.routines.find(r=>r.id==v).id}
   else if(a==="rback")ui.rd=null;
   else if(a==="openS"){scrollTo(0,0);ui.sd=S.workouts.find(w=>w.id==v).id}
@@ -206,7 +214,7 @@ document.addEventListener("click",e=>{
   else if(a==="dels"){S.active.exs[el.dataset.i].sets.splice(el.dataset.j,1);ui.sm=null;save()}
   else if(a==="addset"){const x=S.active.exs[v],l=x.sets[x.sets.length-1];x.sets.push({kg:l?l.kg:0,reps:l?l.reps:0,done:false});save()}
   else if(a==="rmex"){S.active.exs.splice(v,1);save()}
-  else if(a==="rest"){ui.rest=v==="0"?0:Math.max(Date.now(),ui.rest)+v*1000}
+  else if(a==="rest"){ui.rest=v==="0"?0:Date.now()}
   else if(a==="delw"){if(ui.del!=="w"+v){ui.del="w"+v}else{S.workouts=S.workouts.filter(w=>w.id!=v);ui.del=null;save()}}
   else if(a==="delr"){if(ui.del!=="r"+v){ui.del="r"+v}else{S.routines=S.routines.filter(r=>r.id!=v);ui.del=null;save()}}
   else if(a==="editR"){const r=S.routines.find(r=>r.id==v);ui.pick={mode:"routine",editId:r.id,sel:[...r.exs],q:"",eq:"",mu:"",name:r.name}}
@@ -229,7 +237,7 @@ document.addEventListener("click",e=>{
 });
 setInterval(()=>{
   if(ui.view==="active"&&S.active){const c=$("#clk");if(c)c.textContent=fmt((Date.now()-S.active.start)/1000);
-    const r=$("#rest");if(r){if(ui.rest>Date.now()){r.hidden=false;$("#rt").textContent=fmt((ui.rest-Date.now())/1000)}else if(!r.hidden){r.hidden=true;try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}}}
+    const r=$("#rest");if(r&&ui.rest){r.hidden=false;$("#rt").textContent=fmt((Date.now()-ui.rest)/1000)}}
 },500);
 if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 askP();render();
