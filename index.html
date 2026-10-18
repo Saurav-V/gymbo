@@ -67,6 +67,16 @@ ol,ul{padding-left:22px;margin:0}li{margin:9px 0;line-height:1.35}
 textarea{background:transparent;border:1px solid var(--line);padding:10px;width:100%;outline:none;border-radius:0;font:inherit;color:inherit;min-height:110px}textarea:focus{border-color:var(--ac)}
 .set>span{text-align:center}
 .top{z-index:40}
+.sw{width:48px;height:26px;padding:0;border-radius:13px;position:relative;flex-shrink:0}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--dim);transition:left .15s}
+.sw.on{border-color:var(--ac);background:rgba(143,211,230,.18)}.sw.on::after{left:25px;background:var(--ac)}
+.rec{display:flex;align-items:center;gap:8px;margin:8px 0 2px;padding:6px 10px;border:1px solid var(--cr);color:var(--cr);font-size:13px}.rec svg{flex-shrink:0}
+.cel{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:60;background:var(--panel);border:1px solid var(--cr);padding:18px 28px;text-align:center;animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
+.cel .medal{animation:spin .8s ease-out}.cf{position:absolute;top:30%;width:6px;height:10px;animation:fall 1.4s ease-out forwards}
+@keyframes pop{from{transform:translateX(-50%) scale(.4);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+@keyframes spin{from{transform:rotate(-25deg) scale(.5)}to{transform:none}}
+@keyframes fall{to{transform:translate(var(--dx),170px) rotate(540deg);opacity:0}}
+@media (prefers-reduced-motion:reduce){.cel,.cel *{animation:none!important}}
 </style></head><body>
 <div id="app"></div><div id="layer"></div><div id="info"></div><div id="dlg"></div>
 <script>
@@ -145,14 +155,29 @@ const fd=t=>new Date(t).toLocaleDateString(undefined,{month:"short",day:"numeric
 const lib=()=>EX.concat(S.custom).map(e=>[...e]);
 const vol=w=>w.exs.reduce((a,x)=>a+x.sets.reduce((b,s)=>b+(s.w?0:s.kg*s.reps),0),0);
 const e1=s=>s.kg*(1+s.reps/30);
-function hist(name){const o=[];S.workouts.forEach(w=>w.exs.forEach(x=>{if(x.n===name&&x.sets.length)o.push({t:w.date,sets:x.sets,work:x.sets.filter(s=>!s.w),note:x.note||"",dl:!!w.deload})}));return o.sort((a,b)=>a.t-b.t)}
-const setRows=ss=>ss.map((s,i)=>`<div class="row sp dim" style="padding:3px 0"><span>${s.w?"Warm-up":"Set "+ss.slice(0,i+1).filter(t=>!t.w).length}</span><span style="color:var(--tx)">${s.kg} kg × ${s.reps}</span></div>`).join("");
+function hist(name){const o=[];S.workouts.forEach((w,wi)=>w.exs.forEach(x=>{if(x.n===name&&x.sets.length)o.push({t:w.date,sets:x.sets,work:x.sets.filter(s=>!s.w),note:x.note||"",dl:!!w.deload,wi})}));return o.sort((a,b)=>a.t-b.t)}
+const MED=z=>`<svg width="${z}" height="${z}" viewBox="0 0 24 24" style="vertical-align:-3px"><path d="M7 2l5 8 5-8z" fill="#f0583a"/><circle cx="12" cy="15" r="6.5" fill="#f3e9a8"/><path d="M12 11.5l1.1 2.3 2.5.3-1.8 1.7.5 2.5-2.3-1.3-2.3 1.3.5-2.5-1.8-1.7 2.5-.3z" fill="#070a0f"/></svg>`;
+const priorFor=(n,end)=>S.workouts.slice(0,end).filter(w=>!w.deload).flatMap(w=>w.exs.filter(x=>x.n===n).map(x=>({work:x.sets.filter(s=>!s.w)})));
+function recOf(sets,prior){const r={kg:-1,vol:-1},W=prior.flatMap(x=>x.work);if(!W.length)return r;let bk=Math.max(...W.map(s=>s.kg)),bv=Math.max(...W.map(s=>s.kg*s.reps));
+sets.forEach((s,j)=>{if(s.w||!s.done||!(s.reps>0)||!(s.kg>0))return;if(s.kg>bk){bk=s.kg;r.kg=j}if(s.kg*s.reps>bv){bv=s.kg*s.reps;r.vol=j}});return r}
+const wrec=(w,wi)=>w.exs.map(x=>w.deload?{kg:-1,vol:-1}:recOf(x.sets,priorFor(x.n,wi)));
+const isRec=r=>!!r&&(r.kg>=0||r.vol>=0);
+const hasRec=R=>R.some(isRec);
+const recLine=rc=>isRec(rc)?`<div class="rec">${MED(16)}<span>Record: ${[rc.kg>=0&&"Heaviest weight",rc.vol>=0&&"Best set volume"].filter(Boolean).join(" · ")}</span></div>`:"";
+function recHtml(i){const A=S.active,x=A&&A.exs[i];if(!x||A.deload)return"";const r=recOf(x.sets,priorFor(x.n,S.workouts.length)),t=[];
+if(r.kg>=0)t.push("Heaviest weight "+x.sets[r.kg].kg+" kg");if(r.vol>=0)t.push("Best set volume "+x.sets[r.vol].kg*x.sets[r.vol].reps+" kg");
+return t.length?`<div class="rec">${MED(18)}<span>New record: ${t.join(" · ")}</span></div>`:""}
+const updRec=()=>{if(S.active)S.active.exs.forEach((x,i)=>{const e=$("#rec"+i);if(e)e.innerHTML=recHtml(i)})};
+function celebrate(t){const d=document.createElement("div");d.className="cel";d.innerHTML=`<div class="medal">${MED(84)}</div><b style="font-size:18px">New record!</b><div class="dim" style="margin-top:4px">${esc(t)}</div>`;
+for(let i=0;i<16;i++){const c=document.createElement("i");c.className="cf";c.style.cssText=`left:${50+(Math.random()-.5)*80}%;background:${["#f0583a","#f3e9a8","#8fd3e6"][i%3]};animation-delay:${Math.random()*.25}s;--dx:${(Math.random()-.5)*170}px`;d.appendChild(c)}
+d.onclick=()=>d.remove();document.body.appendChild(d);try{navigator.vibrate&&navigator.vibrate([60,40,60])}catch(e){}setTimeout(()=>d.remove(),2800)}
+const setRows=(ss,rc)=>ss.map((s,i)=>`<div class="row sp dim" style="padding:3px 0"><span>${s.w?"Warm-up":"Set "+ss.slice(0,i+1).filter(t=>!t.w).length}</span><span style="color:var(--tx)">${s.kg} kg × ${s.reps}${rc&&(rc.kg===i||rc.vol===i)?" "+MED(14):""}</span></div>`).join("");
 const noteH=n=>n?`<div class="dim" style="margin-top:6px">Note: ${esc(n)}</div>`:"";
 function routineView(){const r=S.routines.find(r=>r.id===ui.rd);if(!r){ui.rd=null;return home()}
 return `<div class="row sp"><button class="ghost row" style="gap:6px" data-a="rback">${BK}Back</button><button class="ghost" data-a="editR" data-v="${r.id}">Edit</button></div><h1 style="margin-top:14px">${esc(r.name)}</h1>${r.exs.map(n=>{const h=hist(n).filter(y=>!y.dl),l=h[h.length-1];return `<div class="card"><div class="row sp"><b style="color:var(--ac)">${esc(n)}</b><button class="ib" data-a="detail" data-v="${esc(n)}">i</button></div>${l?`<div class="dim" style="margin:6px 0">Last session ${fd(l.t)}</div>${setRows(l.sets)}${noteH(l.note)}`:`<div class="dim" style="margin-top:6px">No history yet</div>`}</div>`}).join("")}<button class="dng" style="width:100%;margin-top:6px" data-a="askR">Delete routine</button><div class="foot"><button class="hot" style="width:100%;padding:15px" data-a="startR" data-v="${r.id}">Start routine</button></div>`}
 function sessionView(){const w=S.workouts.find(w=>w.id===ui.sd);if(!w){ui.sd=null;return home()}
-const n=w.exs.reduce((a,x)=>a+x.sets.filter(s=>!s.w).length,0);
-return `<div class="row sp"><button class="ghost row" style="gap:6px" data-a="sback">${BK}Back</button><button class="ghost" style="color:var(--dim)" data-a="askW">Delete</button></div><h1 style="margin-top:14px">${esc(w.name)}${w.deload?' <span class="tag" style="background:var(--ac);font-size:10px">DELOAD</span>':""}</h1><div class="card grid2"><div><div class="dim">Date</div><b>${new Date(w.date).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}</b></div><div><div class="dim">Time</div><b>${fmt(w.dur)}</b></div><div><div class="dim">Volume</div><b style="color:var(--cr)">${Math.round(vol(w)).toLocaleString()} kg</b></div><div><div class="dim">Working sets</div><b>${n}</b></div></div>${w.exs.map(x=>`<div class="card"><div class="row sp"><b style="color:var(--ac)">${esc(x.n)}</b><button class="ib" data-a="detail" data-v="${esc(x.n)}">i</button></div><div style="margin-top:6px">${setRows(x.sets)}</div>${noteH(x.note)}</div>`).join("")}`}
+const n=w.exs.reduce((a,x)=>a+x.sets.filter(s=>!s.w).length,0),RC=wrec(w,S.workouts.indexOf(w));
+return `<div class="row sp"><button class="ghost row" style="gap:6px" data-a="sback">${BK}Back</button><button class="ghost" style="color:var(--dim)" data-a="askW">Delete</button></div><h1 style="margin-top:14px">${esc(w.name)}${w.deload?' <span class="tag" style="background:var(--ac);font-size:10px">DELOAD</span>':""}${hasRec(RC)?" "+MED(22):""}</h1><div class="card grid2"><div><div class="dim">Date</div><b>${new Date(w.date).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}</b></div><div><div class="dim">Time</div><b>${fmt(w.dur)}</b></div><div><div class="dim">Volume</div><b style="color:var(--cr)">${Math.round(vol(w)).toLocaleString()} kg</b></div><div><div class="dim">Working sets</div><b>${n}</b></div></div>${w.exs.map((x,xi)=>{const rc=RC[xi];return `<div class="card"><div class="row sp"><b style="color:var(--ac)">${esc(x.n)}</b><button class="ib" data-a="detail" data-v="${esc(x.n)}">i</button></div><div style="margin-top:6px">${setRows(x.sets,rc)}</div>${recLine(rc)}${noteH(x.note)}</div>`}).join("")}`}
 function pbl(){const p=ui.pick;return p.sel.length?(p.mode==="routine"?`Save routine (${p.sel.length})`:`Add ${p.sel.length} exercise${p.sel.length>1?"s":""}`):"Select exercises"}
 function pbtn(){const b=$("#pdn");if(b)b.textContent=pbl()}
 const nav=()=>`<nav>${[["home","Home"],["workout","Workout"],["profile","Profile"]].map(t=>`<button data-a="tab" data-v="${t[0]}" class="${ui.tab===t[0]?"on":""}">${t[1]}</button>`).join("")}</nav>`;
@@ -165,7 +190,7 @@ function ring(){ // weekly dial
 function home(){
   const ws=[...S.workouts].reverse(),tot=S.workouts.reduce((a,w)=>a+vol(w),0);
   return `<div class="row sp"><h1>GYMBO</h1><span class="tag">${S.active?"IN PROGRESS":"READY"}</span></div>${S.active?`<div class="card row sp" style="border-color:var(--red)"><span>Workout in progress</span><button class="hot" data-a="resume">Resume</button></div>`:""}${stale()?`<div class="card row sp" style="border-color:var(--red)"><span>Back up your log</span><button class="hot" data-a="share">Save backup</button></div>`:""}<div class="card row sp"><div>${ring()}</div><div style="text-align:right"><div class="dim">Total lifted</div><div class="big" style="color:var(--cr)">${Math.round(tot).toLocaleString()}</div><div class="dim">kg</div><div class="dim" style="margin-top:12px">Sessions logged</div><div class="big" style="color:var(--red)">${S.workouts.length}</div></div></div>
-  <h2>Recent sessions</h2>${ws.length?ws.slice(0,20).map(w=>`<div class="card" data-a="openS" data-v="${w.id}"><div class="row sp"><b>${esc(w.name)}${w.deload?' <span class="tag" style="background:var(--ac);font-size:10px">DELOAD</span>':""}</b><span class="dim">${fd(w.date)} · ${fmt(w.dur)}</span></div><div class="dim" style="margin:6px 0 8px">${Math.round(vol(w)).toLocaleString()} kg volume</div>${w.exs.map(x=>{const w2=x.sets.filter(s=>!s.w),w3=w2.length?w2:x.sets,b=w3.reduce((m,s)=>s.kg>=m.kg?s:m,w3[0]);return `<div class="row sp" style="font-size:14px;padding:2px 0"><span>${x.sets.length} × ${esc(x.n)}</span><span class="dim">${b.kg} kg × ${b.reps}</span></div>`}).join("")}</div>`).join(""):`<div class="card dim">No sessions yet. Open the Workout tab and start your first one.</div>`}`}
+  <h2>Recent sessions</h2>${ws.length?ws.slice(0,20).map(w=>`<div class="card" data-a="openS" data-v="${w.id}"><div class="row sp"><b>${esc(w.name)}${w.deload?' <span class="tag" style="background:var(--ac);font-size:10px">DELOAD</span>':""}${hasRec(wrec(w,S.workouts.indexOf(w)))?" "+MED(16):""}</b><span class="dim">${fd(w.date)} · ${fmt(w.dur)}</span></div><div class="dim" style="margin:6px 0 8px">${Math.round(vol(w)).toLocaleString()} kg volume</div>${w.exs.map(x=>{const w2=x.sets.filter(s=>!s.w),w3=w2.length?w2:x.sets,b=w3.reduce((m,s)=>s.kg>=m.kg?s:m,w3[0]);return `<div class="row sp" style="font-size:14px;padding:2px 0"><span>${x.sets.length} × ${esc(x.n)}</span><span class="dim">${b.kg} kg × ${b.reps}</span></div>`}).join("")}</div>`).join(""):`<div class="card dim">No sessions yet. Open the Workout tab and start your first one.</div>`}`}
 
 function workout(){
   const a=S.active,folders=[...new Set(S.routines.map(r=>r.folder))];
@@ -188,7 +213,7 @@ const tile=(m,k)=>`<div class="mt ${k}">${mimg(m)}<div>${tc(m)}</div><small>${k=
 return `<div class="row sp"><button class="ghost row" style="gap:6px" data-a="back">${BK}Back</button><button class="ghost" data-a="efEdit">Edit</button></div><h1 style="margin:10px 0 4px;font-size:22px">${esc(n)}</h1><div class="dim">${esc(e[1])}</div>
 <div class="tabs" style="margin-top:12px">${[["sum","Summary"],["his","History"],["how","How to"]].map(t=>`<button data-a="dtab" data-v="${t[0]}" class="${T===t[0]?"on":""}">${t[1]}</button>`).join("")}</div>
 ${T==="sum"?`<h2>Muscles worked</h2><div class="mts">${M.map((m,i)=>tile(m,i?"s":"p")).join("")}</div><h2>Personal records</h2><div class="grid2">${st("Heaviest weight",best(s=>s.kg),"kg")}${st("Best set volume",best(s=>s.kg*s.reps),"kg")}</div><h2>Progress</h2><div class="card">${chart(pts)}</div><div class="chips">${[["w","Heaviest weight"],["v","Best set volume"]].map(c=>`<button data-a="metric" data-v="${c[0]}" class="${ui.metric===c[0]?"on":""}">${c[1]}</button>`).join("")}</div>`
-:T==="his"?([...h].reverse().map(x=>`<div class="card"><b>${fd(x.t)}${x.dl?' <span class="tag" style="background:var(--ac);font-size:10px">DELOAD</span>':""}</b>${setRows(x.sets)}${noteH(x.note)}</div>`).join("")||`<div class="dim" style="margin-top:14px">No history yet.</div>`)
+:T==="his"?([...h].reverse().map(x=>{const rc=x.dl?null:recOf(x.sets,priorFor(n,x.wi));return `<div class="card"><b>${fd(x.t)}${x.dl?' <span class="tag" style="background:var(--ac);font-size:10px">DELOAD</span>':""}${isRec(rc)?" "+MED(16):""}</b>${setRows(x.sets,rc)}${recLine(rc)}${noteH(x.note)}</div>`}).join("")||`<div class="dim" style="margin-top:14px">No history yet.</div>`)
 :hw?`<h2>Steps</h2><div class="card"><ol>${hw.steps.map(t=>`<li>${esc(t)}</li>`).join("")}</ol></div>${hw.tips.length?`<h2>Form tips</h2><div class="card"><ul>${hw.tips.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></div>`:""}`:`<div class="card dim" style="margin-top:14px">No instructions yet. Tap Edit to add your own.</div>`}`}
 function openEf(n){const e=n?exOf(n):null,M=n?ms(e):[],h=n?how(n):null,q=ui.pick?ui.pick.q.trim():"";
 let nr=null;if(n)for(let i=S.workouts.length-1;i>=0&&!nr;i--){const w=S.workouts[i],x=w.exs.find(x=>x.n===n&&x.note);if(x)nr={id:w.id,when:w.date,text:x.note}}
@@ -220,11 +245,11 @@ function active(){
   const a=S.active;
   return `<div class="row sp" style="margin-bottom:12px"><button class="ghost row" style="gap:8px" data-a="min"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5"/></svg>Minimize</button><span id="clk" class="big" style="font-size:20px">${fmt((Date.now()-a.start)/1000)}</span><button class="hot" data-a="finish">Finish</button></div>
   <div class="rest" id="rest" ${ui.rest?"":"hidden"}><div class="row sp"><span>Rest <b id="rt">${ui.rest?fmt((Date.now()-ui.rest)/1000):"0:00"}</b></span><span><button class="ghost" data-a="rest" data-v="reset">Restart</button><button class="ghost" data-a="rest" data-v="0">Hide</button></span></div></div>
-  <div class="row" style="margin-bottom:14px"><input id="wn" value="${esc(a.name)}" style="flex:1;min-width:0;font-size:18px;font-weight:500"><button data-a="deload" class="${a.deload?"hot":""}">Deload</button></div>${a.deload?`<div class="dim" style="font-size:12px;margin:-6px 0 12px">Deload workout: weights set to 75%. It won’t change your Previous values.</div>`:""}
+  <input id="wn" value="${esc(a.name)}" style="display:block;margin:0 0 12px;font-size:18px;font-weight:500"><div class="row sp" style="border:1px solid var(--line);padding:9px 12px;margin-bottom:12px"><span>Deload workout</span><button class="sw ${a.deload?"on":""}" role="switch" aria-checked="${!!a.deload}" aria-label="Deload workout" data-a="deload"></button></div>${a.deload?`<div class="dim" style="font-size:12px;margin:-4px 0 12px">Deload workout: Weights set to 75%. It won’t change your Previous values.</div>`:""}
   ${a.exs.map((x,i)=>{const h=hist(x.n),hp=h.filter(y=>!y.dl),last=hp.length?hp[hp.length-1].sets:[];return `<div class="card"><div class="row sp"><span class="row" style="gap:8px;flex:1"><b style="color:var(--ac)">${esc(x.n)}</b><button class="ib" data-a="detail" data-v="${esc(x.n)}">i</button></span><button class="ghost dng" style="color:var(--dim)" data-a="rmex" data-v="${i}">Remove</button></div>
   <input data-nt="" data-i="${i}" placeholder="Add a note" value="${esc(x.note||"")}" style="margin:8px 0 4px;font-size:14px">${(()=>{const q=[...h].reverse().find(x=>x.note);return q?`<div class="dim" style="font-size:12px;margin-bottom:4px">Last note: ${esc(q.note)} · ${fd(q.t)}</div>`:""})()}<div class="set dim" style="font-size:11px"><span>Set</span><span>Previous</span><span>kg</span><span>Reps</span><span></span></div>
   ${x.sets.map((s,j)=>{const n=x.sets.slice(0,j+1).filter(t=>!t.w).length,m=ui.sm===i+"-"+j;return `<div class="set ${s.done?"done":""}"><button class="num ${s.w?"wu":""}" data-a="sm" data-i="${i}" data-j="${j}">${s.w?"W":n}</button><span class="dim">${last[j]?last[j].kg+" × "+last[j].reps:"–"}</span><input inputmode="decimal" data-i="${i}" data-j="${j}" data-f="kg" value="${s.kg||""}" placeholder="0"><input inputmode="numeric" data-i="${i}" data-j="${j}" data-f="reps" value="${s.reps||""}" placeholder="0"><button class="chk" data-a="chk" data-i="${i}" data-j="${j}">✓</button></div>${m?`<div class="grid2" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:6px"><button data-a="swt" data-i="${i}" data-j="${j}" data-v="0">Normal</button><button data-a="swt" data-i="${i}" data-j="${j}" data-v="1">Warm-up</button><button class="dng" data-a="dels" data-i="${i}" data-j="${j}">Delete</button></div>`:""}`}).join("")}
-  <button style="width:100%;margin-top:8px" data-a="addset" data-v="${i}">+ Add set</button></div>`}).join("")}
+  <div id="rec${i}">${recHtml(i)}</div><button style="width:100%;margin-top:8px" data-a="addset" data-v="${i}">+ Add set</button></div>`}).join("")}
   <button class="pri" style="width:100%;margin-bottom:12px" data-a="openPick">+ Add exercise</button><button class="dng" style="width:100%" data-a="discard">Discard workout</button>`}
 
 function picker(){
@@ -263,7 +288,7 @@ document.addEventListener("input",e=>{
   else if(t.id==="wn"){S.active.name=t.value;save()}
   else if(t.dataset.ef){ui.ef[t.dataset.ef]=t.value}
   else if(t.dataset.nt!==undefined){S.active.exs[t.dataset.i].note=t.value;save()}
-  else if(t.dataset.f){const st=S.active.exs[t.dataset.i].sets[t.dataset.j];st[t.dataset.f]=parseFloat(t.value)||0;if(t.dataset.f==="kg")delete st.k0;save()}
+  else if(t.dataset.f){const st=S.active.exs[t.dataset.i].sets[t.dataset.j];st[t.dataset.f]=parseFloat(t.value)||0;if(t.dataset.f==="kg")delete st.k0;save();updRec()}
 });
 document.addEventListener("change",e=>{if(e.target.dataset.ef==="prim"){ui.ef.prim=e.target.value;ui.ef.sec=ui.ef.sec.filter(m=>m!==e.target.value);showInfo();return}if(e.target.id==="smu"){ui.pick.mu=e.target.value;plist();return}if(e.target.id==="imp"){const f=e.target.files[0];if(!f)return;f.text().then(x=>{try{const d=JSON.parse(x);if(d.workouts&&d.routines){S=d;S.info=S.info||{};S.hid=S.hid||[];save();render()}}catch(_){}})}});
 document.addEventListener("click",e=>{
@@ -279,7 +304,7 @@ document.addEventListener("click",e=>{
   else if(a==="fdur")return finish(+v);
   else if(a==="fcustom"){const m=parseFloat($("#fmin").value);if(!(m>0)){$("#fmin").focus();return}return finish(m*60)}
   else if(a==="fback")ui.fin=null;
-  else if(a==="chk"){const s=S.active.exs[el.dataset.i].sets[el.dataset.j];s.done=!s.done;if(s.done){ui.rest=Date.now()}save()}
+  else if(a==="chk"){const s=S.active.exs[el.dataset.i].sets[el.dataset.j];s.done=!s.done;if(s.done){ui.rest=Date.now();const x=S.active.exs[el.dataset.i],j=+el.dataset.j,r=S.active.deload?null:recOf(x.sets,priorFor(x.n,S.workouts.length));if(r&&(r.kg===j||r.vol===j))celebrate(x.n+": "+[r.kg===j&&"Heaviest weight "+s.kg+" kg",r.vol===j&&"Best set volume "+s.kg*s.reps+" kg"].filter(Boolean).join(" · "))}save()}
   else if(a==="openR"){scrollTo(0,0);ui.rd=S.routines.find(r=>r.id==v).id}
   else if(a==="rback")ui.rd=null;
   else if(a==="openS"){scrollTo(0,0);ui.sd=S.workouts.find(w=>w.id==v).id}
