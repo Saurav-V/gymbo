@@ -80,7 +80,7 @@ textarea{background:transparent;border:1px solid var(--line);padding:10px;width:
 .added{border-color:var(--cr);color:var(--cr)}
 .sw2{width:30px;height:30px;border-radius:50%;padding:0;border:2px solid var(--line)}.sw2.on{outline:2px solid var(--tx);outline-offset:2px}
 button:disabled{opacity:.3}
-.rchip{display:inline-block;padding:3px 12px;border-radius:99px;color:#070a0f;font-weight:600}
+.rchip{display:inline-block;padding:3px 12px;border-radius:0;font-weight:600}
 .grip{touch-action:none;user-select:none;cursor:grab;width:34px;height:34px;display:grid;place-items:center;color:var(--dim);flex-shrink:0}
 .drag{position:relative;z-index:5;background:var(--panel);box-shadow:0 6px 18px rgba(0,0,0,.55)}
 .pm{width:30px;height:30px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;color:var(--ac);flex-shrink:0}.pm.on{background:var(--cr);border-color:var(--cr);color:#070a0f}
@@ -93,10 +93,11 @@ const ms=e=>{const o=S.info&&S.info[nm(e)];return o&&o.m&&o.m.length?o.m:Array.i
 function migrate(){S.goals=S.goals||{s:4,h:3,kg:20000};const M={"Leg Raise (Bodyweight)":"Hanging Leg Raise (Bodyweight)","Calf Raise (Machine)":"Standing Calf Raise (Machine)"},r=n=>M[n]||n;
 S.workouts.forEach(w=>w.exs.forEach(x=>x.n=r(x.n)));S.routines.forEach(q=>q.exs=q.exs.map(r));if(S.active)S.active.exs.forEach(x=>x.n=r(x.n));S.hid=S.hid.map(r);
 Object.keys(M).forEach(o=>{if(S.info[o]){S.info[M[o]]=S.info[o];delete S.info[o]}})}
-const RCOL=["","#f0583a","#f3e9a8","#8fd3e6","#5b9fbd","#7fcf9f","#c4a7e7"];
+const RCOL=["","#ff3b30","#ff9500","#ffd60a","#34c759","#00c7be","#0a84ff","#bf5af2","#ff2d92"];
 const IC=d=>`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto"><path d="${d}"/></svg>`;
 const ICX=IC("M6 6l12 12M18 6L6 18"),ICU=IC("M6 15l6-6 6 6"),ICD=IC("M6 9l6 6 6-6"),PLUS=IC("M12 5v14M5 12h14"),CHK=IC("M5 13l4 4L19 7"),GRIP=IC("M4 8h16M4 12h16M4 16h16");
-const chip=r=>r.color?`<b class="rchip" style="background:${r.color}">${esc(r.name)}</b>`:`<b>${esc(r.name)}</b>`;
+const ink=c=>{const f=i=>{const v=parseInt(c.slice(i,i+2),16)/255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4)};return .2126*f(1)+.7152*f(3)+.0722*f(5)>.33?"#070a0f":"#fff"};
+const chip=r=>r.color?`<b class="rchip" style="background:${r.color};color:${ink(r.color)}">${esc(r.name)}</b>`:`<b>${esc(r.name)}</b>`;
 function sortable(box,sel,done){
  box.querySelectorAll(sel).forEach(el=>{const g=el.querySelector(".grip");if(!g)return;
   g.addEventListener("pointerdown",e=>{
@@ -239,13 +240,21 @@ function pbtn(){const t=$("#ptt");if(t)t.textContent=ptitle();const o=$("#pot");
 const nav=()=>`<nav>${[["home","Home"],["workout","Workout"],["profile","Profile"]].map(t=>`<button data-a="tab" data-v="${t[0]}" class="${ui.tab===t[0]?"on":""}">${t[1]}</button>`).join("")}</nav>`;
 
 function ring(){
-  const g=S.goals,d0=new Date();d0.setHours(0,0,0,0);d0.setDate(d0.getDate()-((d0.getDay()+6)%7));
+  const g=S.goals,n=new Date(),d0=new Date(n);d0.setHours(0,0,0,0);d0.setDate(d0.getDate()-((d0.getDay()+6)%7));
   const ws=S.workouts.filter(w=>w.date>=d0.getTime()),v={s:ws.length,h:ws.reduce((a,w)=>a+w.dur,0)/3600,kg:ws.reduce((a,w)=>a+vol(w),0)};
   const fh=h=>{const m=Math.round(h*60);return Math.floor(m/60)+"h "+String(m%60).padStart(2,"0")+"m"},fk=k=>Math.round(k).toLocaleString();
-  const RG=[[84,"kg","#f0583a","Weight lifted",fk(v.kg),"/ "+fk(g.kg)+" kg"],[70,"h","#8fd3e6","Time",fh(v.h),"/ "+fh(g.h)],[56,"s","#f3e9a8","Sessions",v.s,"/ "+g.s]];
-  const arcs=RG.map(([r,k,c])=>{const C=2*Math.PI*r,f=g[k]>0?Math.min(1,v[k]/g[k]):0;return `<circle cx="100" cy="100" r="${r}" fill="none" stroke="rgba(143,211,230,.14)" stroke-width="9"/>${f>0?`<circle cx="100" cy="100" r="${r}" fill="none" stroke="${c}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${f*C} ${C}" transform="rotate(-90 100 100)"/>`:""}`}).join("");
+  const RG=[[88,"kg","#f0583a","Weight lifted",fk(v.kg),"/ "+fk(g.kg)+" kg"],[74,"h","#8fd3e6","Time",fh(v.h),"/ "+fh(g.h)],[60,"s","#f3e9a8","Sessions",v.s,"/ "+g.s]];
+  const T=2*Math.PI,P=(r,a)=>[(120+r*Math.sin(a)).toFixed(1),(120-r*Math.cos(a)).toFixed(1)];
+  let t="";
+  for(let i=0;i<56;i++){const a=i*T/56,m=i%8===0,[x1,y1]=P(m?97:100,a),[x2,y2]=P(106,a);t+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${m?"#f3e9a8":"rgba(143,211,230,.4)"}" stroke-width="${m?1.6:1}"/>`}
+  for(let i=0;i<7;i++){const [x,y]=P(115,(i+.5)*T/7);t+=`<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" style="font-size:9px">${"MTWTFSS"[i]}</text>`}
+  const wa=Math.min(1,(n-d0)/(7*864e5))*T,[a1,b1]=P(96,wa-.04),[a2,b2]=P(96,wa+.04),[a3,b3]=P(90.5,wa);
+  t+=`<polygon points="${a1},${b1} ${a2},${b2} ${a3},${b3}" fill="#f0583a"/>`;
+  t+=`<circle cx="120" cy="120" r="46" fill="none" stroke="rgba(143,211,230,.3)" stroke-dasharray="1 4"/>`;
+  for(let i=0;i<4;i++){const [x1,y1]=P(47,i*T/4),[x2,y2]=P(53,i*T/4);t+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(243,233,168,.6)"/>`}
+  const arcs=RG.map(([r,k,c])=>{const C=T*r,f=g[k]>0?Math.min(1,v[k]/g[k]):0,[ex,ey]=P(r,f*T);return `<circle cx="120" cy="120" r="${r}" fill="none" stroke="rgba(143,211,230,.45)" stroke-width="1" stroke-dasharray="1.5 3"/>`+(f>0?`<circle cx="120" cy="120" r="${r}" fill="none" stroke="${c}" stroke-width="5" stroke-dasharray="${f*C} ${C}" transform="rotate(-90 120 120)"/><circle cx="${ex}" cy="${ey}" r="3.6" fill="#070a0f" stroke="${c}" stroke-width="1.6"/>`:`<circle cx="120" cy="${120-r}" r="2.2" fill="${c}"/>`)}).join("");
   const leg=RG.map(([r,k,c,l,a,b])=>`<div class="row" style="gap:8px;align-items:flex-start"><i style="width:10px;height:10px;border-radius:50%;background:${c};margin-top:5px;flex-shrink:0"></i><div><div class="dim" style="font-size:12px">${l}</div><b style="font-size:15px">${a}</b> <span class="dim" style="font-size:12px">${b}</span></div></div>`).join("");
-  return `<div class="card row" style="gap:14px"><svg viewBox="0 0 200 200" width="150" height="150" style="flex:none">${arcs}<text x="100" y="106" text-anchor="middle" style="font-size:12px">This week</text></svg><div style="display:grid;gap:10px;flex:1;min-width:0">${leg}</div></div>`}
+  return `<div class="card row" style="gap:12px"><svg viewBox="0 0 240 240" width="172" height="172" style="flex:none">${t}${arcs}<text x="120" y="114" text-anchor="middle" style="font-size:20px;fill:#e6eef2">${n.toLocaleDateString(undefined,{weekday:"short"})}</text><text x="120" y="132" text-anchor="middle" style="font-size:9px">This week</text></svg><div style="display:grid;gap:10px;flex:1;min-width:0">${leg}</div></div>`}
 function home(){
   const ws=[...S.workouts].reverse(),tot=S.workouts.reduce((a,w)=>a+vol(w),0);
   return `<div class="row sp"><h1>GYMBO</h1><span class="tag">${S.active?"IN PROGRESS":"READY"}</span></div>${S.active?`<div class="card row sp" style="border-color:var(--red)"><span>Workout in progress</span><button class="hot" data-a="resume">Resume</button></div>`:""}${stale()?`<div class="card row sp" style="border-color:var(--red)"><span>Back up your log</span><button class="hot" data-a="share">Save backup</button></div>`:""}${ring()}
@@ -261,7 +270,7 @@ function workout(){
 function profile(){
   const done=[...new Set(S.workouts.flatMap(w=>w.exs.map(x=>x.n)))];
   return `<h1>PROFILE</h1><h2>Exercise progress</h2>${done.length?done.map(n=>{const h=hist(n),m=Math.max(0,...h.flatMap(x=>x.work.map(s=>s.kg)));return `<div class="item" data-a="detail" data-v="${esc(n)}">${mic(ms(META[n]||[n,"","Custom"])[0],n)}<div style="flex:1">${esc(n)}<div class="dim">${h.length} sessions</div></div><b>${m} kg</b></div>`}).join(""):`<div class="card dim">Finish a workout to see per-exercise progress here.</div>`}
-  <h2>Weekly Targets</h2><div class="card"><div class="dim" style="margin-bottom:6px">These set the rings on the Home screen. Each week runs Monday to Sunday.</div>${[["s","Sessions","per week"],["h","Training time","hours"],["kg","Weight lifted","kg"]].map(([k,l,u])=>`<label class="row sp" style="margin:10px 0"><span>${l}</span><span class="row" style="gap:8px"><input data-g="${k}" inputmode="decimal" value="${S.goals[k]}" style="width:96px;text-align:right"><span class="dim" style="width:56px">${u}</span></span></label>`).join("")}</div>
+  <h2>Weekly Targets</h2><div class="card"><div class="dim" style="margin-bottom:6px">These are represented in the Home screen glyph. A week runs Monday to Sunday.</div>${[["s","Sessions","per week"],["h","Training time","hours"],["kg","Weight lifted","kg"]].map(([k,l,u])=>`<label class="row sp" style="margin:10px 0"><span>${l}</span><span class="row" style="gap:8px"><input data-g="${k}" inputmode="decimal" value="${S.goals[k]}" style="width:96px;text-align:right"><span class="dim" style="width:56px">${u}</span></span></label>`).join("")}</div>
   <h2>Data</h2><div class="card"><div class="dim" style="margin-bottom:10px">Your log is stored on this device. Protected storage stops Chrome clearing it when space runs low, but a backup is the only full safety net.</div><button class="hot" style="width:100%;margin-bottom:10px" data-a="share">Save backup</button><div class="grid2"><button data-a="export">Download file</button><button data-a="import">Import backup</button></div><button class="dng" style="width:100%;margin-top:10px" data-a="askH">Clear Session History</button><div class="dim" style="margin-top:12px" id="pst">Storage protection: checking</div><div class="dim">Last backup: ${S.lastBackup?fd(S.lastBackup):"never"}</div><input id="imp" type="file" accept=".json" hidden></div>`}
 
 function showInfo(){const k=ui.ef?"f":ui.detail?"d"+ui.detail:"",o=$("#info .ov"),st=o&&k===ui.ik?o.scrollTop:0;ui.ik=k;info.innerHTML=ui.ef?formHtml():ui.detail?`<div class="ov inf"><div>${detail()}</div></div>`:"";const n=$("#info .ov");if(n)n.scrollTop=st}
